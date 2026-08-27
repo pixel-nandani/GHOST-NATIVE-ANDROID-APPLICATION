@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  canRetrieveWindowContent -> lets us walk the AccessibilityNodeInfo tree (perception)
+  canPerformGestures       -> lets us dispatchGesture() taps/swipes (grounding)
+  flagReportViewIds        -> exposes viewIdResourceName, useful for stable labels
+  packageNames is intentionally NOT restricted here: the allow-list is enforced in
+  the SafetyGate at action time, so we can still *observe* that we drifted out of an
+  allowed app and abort with a clear reason instead of going blind.
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewClicked|typeViewFocused"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagDefault|flagReportViewIds|flagRetrieveInteractiveWindows|flagIncludeNotImportantViews"
+    android:canPerformGestures="true"
+    android:canRetrieveWindowContent="true"
+    android:description="@string/accessibility_service_description"
+    android:notificationTimeout="100"
+    android:settingsActivity="com.ghost.agent.ui.MainActivity" />

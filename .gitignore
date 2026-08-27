@@ -1,0 +1,19 @@
+*.iml
+.gradle/
+local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild
+.cxx
+*.apk
+*.aab
+
+# Model weights are large and license-bound -- never commit them.
+# Push to the device with:  adb push <model>.task /data/local/tmp/ghost/
+*.task
+*.bin
+*.gguf
+*.tflite
+app/src/main/assets/models/

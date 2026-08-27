@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Compose owns all real styling (see ui/GhostTheme.kt). This exists only so the
+      Activity has a window theme with no ActionBar. Material (not DeviceDefault.DayNight)
+      for API 26 compatibility.
+    -->
+    <style name="Theme.Ghost" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/ghost_background</item>
+    </style>
+</resources>

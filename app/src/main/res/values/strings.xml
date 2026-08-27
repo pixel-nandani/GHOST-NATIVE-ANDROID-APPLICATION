@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Ghost</string>
+    <string name="accessibility_service_label">Ghost — task agent</string>
+
+    <!--
+      Shown on the system Accessibility settings screen. This is the one place the OS
+      lets us explain, in the user's own settings UI, exactly what a service with this
+      much power will and will not do. Worth writing carefully.
+    -->
+    <string name="accessibility_service_description">Ghost reads the screen you are on and taps, types and scrolls for you to carry out a task you asked for in plain language. All planning happens on this device — nothing is sent over the network. Ghost only acts inside apps on its allow-list, stops after a fixed number of steps, and asks you before anything that sends, submits, pays or deletes.</string>
+</resources>
