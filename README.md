@@ -184,10 +184,14 @@ Still needs a real device (do these on the loaner):
 
 - [ ] **Perturbation test** — dark mode, rotation, different app state. This is the whole
       reason the design matches labels instead of pixel coordinates; prove it.
+      
 - [ ] **Permission dry run** on the actual loaner skin.
+- [ ] 
 - [ ] **Latency numbers** — `adb logcat -s GhostService` prints a CSV per run.
+- [ ] 
 - [ ] **NPU vs CPU** — confirm the delegate from `adb logcat -s tflite:V` before putting a
       number on the metrics slide. MediaPipe does not report which one it chose.
+      
 - [ ] **Backup recording** of one clean full run.
 
 ---
@@ -199,21 +203,27 @@ than a dodge.
 
 - **Canvas-rendered apps expose nothing.** Games and some heavily-skinned apps return an
   empty accessibility tree. Ghost detects this and aborts with a clear reason rather than
-  guessing. The VLM fallback (doc Section 7) is not implemented.
+  guessing. The VLM fallback is not implemented.
+  
 - **The model can hallucinate a `target_id`.** Handled, not prevented: the gate rejects
   it, the loop re-perceives and lets the model retry against a fresh element list. Costs
   a step.
+  
 - **Latency stacks.** Keep demo flows short.
+
 - **Voice input may not be offline.** It uses the system `RecognizerIntent`, which on most
   devices is Google's cloud recognizer. **The offline claim covers the agent loop, not
   this optional input path.** Typed input is the primary path and is fully offline.
+  
 - **`GhostSession` is a process-wide singleton.** A production app would use DI. It is
   here because the OS owns the accessibility service's lifecycle, so the Activity can
   never hold a reference to it, and a Binder protocol is a lot of ceremony for one goal
   string and one boolean.
+  
 - **Sampling is not pinned yet.** See the day-one task at the top of
   `MediaPipeLlmEngine.kt` — default temperature ~0.8 is wrong for strict-JSON output and
   is the biggest single cause of parse retries.
+  
 - **No `FOREGROUND_SERVICE`.** Deliberate deviation from doc Section 6: an
   AccessibilityService is already a persistent bound system service, so adding one would
   be dead code.
