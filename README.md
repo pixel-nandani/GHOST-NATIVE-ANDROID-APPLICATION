@@ -104,7 +104,7 @@ only on a phone.
 
 ```
 app/src/main/kotlin/com/ghost/agent/
-├── core/                          ← no Android dependencies, all JVM-testable
+├── core/          ← no Android dependencies, all JVM-testable
 │   ├── model/       UiElement, Action, AgentEvent, TaskOutcome
 │   ├── perception/  ScreenSerializer     — a11y tree → compact prompt text
 │   ├── planning/    Planner, PromptBuilder, ActionParser, LlmPlanner, HeuristicPlanner
