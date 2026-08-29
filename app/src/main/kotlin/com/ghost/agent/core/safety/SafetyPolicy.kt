@@ -50,9 +50,25 @@ data class SafetyPolicy(
         val DEMO: SafetyPolicy = SafetyPolicy(
             allowedPackages = setOf(
                 "com.google.android.gm",              // Gmail
+                "com.android.email",                  // Generic Email
                 "com.google.android.calendar",        // Google Calendar
-                "com.android.chrome",                 // browser-based form flow
+                "com.android.calendar",               // Generic Calendar
+                "com.android.chrome",                 // Chrome
+                "com.ghost.agent",                    // Ghost
+                "com.bbk.launcher2",                  // Vivo/iQOO Launcher
+                "com.sec.android.app.launcher",       // Samsung
+                "com.google.android.apps.nexuslauncher", // Pixel
+                "com.miui.home",                      // MIUI
+                "com.android.launcher3",              // AOSP
+                "com.google.android.apps.messaging",  // Messages
+                "com.google.android.apps.tasks",      // Tasks
+                "com.google.android.googlequicksearchbox", // Search
+                "com.android.settings",               // Settings
+                "com.android.systemui",               // System UI (for notifications etc)
+                "com.google.android.packageinstaller", // For permission dialogs
+                "com.android.permissioncontroller",   // Modern permission manager
             ),
+            requireConfirmForRisky = false,
         )
     }
 }

@@ -34,7 +34,7 @@ class OverlayController(private val context: Context) {
     private val windowManager =
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
-    private var root: LinearLayout? = null
+    private var root: DraggableLayout? = null
     private lateinit var statusText: TextView
     private lateinit var stepText: TextView
     private lateinit var metricsText: TextView
@@ -46,6 +46,39 @@ class OverlayController(private val context: Context) {
     private fun dp(v: Int): Int = (v * density).roundToInt()
 
     val canShow: Boolean get() = Settings.canDrawOverlays(context)
+
+    /**
+     * A simple layout that handles its own dragging logic and satisfies accessibility
+     * requirements by overriding performClick.
+     */
+    private inner class DraggableLayout(context: Context) : LinearLayout(context) {
+        var params: WindowManager.LayoutParams? = null
+        private var startY = 0
+        private var touchY = 0f
+
+        override fun performClick(): Boolean {
+            return super.performClick()
+        }
+
+        override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+            val p = params ?: return false
+            when (ev.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    startY = p.y
+                    touchY = ev.rawY
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dy = (ev.rawY - touchY).roundToInt()
+                    if (kotlin.math.abs(dy) > dp(4)) {
+                        p.y = (startY + dy).coerceAtLeast(0)
+                        runCatching { windowManager.updateViewLayout(this, p) }
+                        return true // drag started
+                    }
+                }
+            }
+            return false
+        }
+    }
 
     // --------------------------------------------------------------------- render
 
@@ -92,7 +125,17 @@ class OverlayController(private val context: Context) {
         if (root != null) return
         if (!canShow) return
 
-        val view = build()
+        val view = DraggableLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(18).toFloat()
+                setColor(Color.parseColor("#E6101014"))
+                setStroke(dp(1), Color.parseColor("#33FFFFFF"))
+            }
+            // Populate the view tree
+            buildInto(this)
+        }
         root = view
 
         val params = WindowManager.LayoutParams(
@@ -109,13 +152,13 @@ class OverlayController(private val context: Context) {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             y = dp(48)
         }
+        view.params = params
 
         runCatching { windowManager.addView(view, params) }
             .onFailure {
                 Log.e(TAG, "could not add overlay", it)
                 root = null
             }
-        makeDraggable(params)
     }
 
     fun hide() {
@@ -125,11 +168,11 @@ class OverlayController(private val context: Context) {
 
     // ---------------------------------------------------------------- view tree
 
-    private fun build(): LinearLayout {
+    private fun buildInto(root: LinearLayout) {
         statusText = TextView(context).apply {
             setTextColor(Color.WHITE)
             textSize = 15f
-            setSingleLine(false)
+            isSingleLine = false
         }
         stepText = TextView(context).apply {
             setTextColor(ACCENT)
@@ -161,7 +204,7 @@ class OverlayController(private val context: Context) {
                     text = "Allow once"
                     setTextColor(Color.BLACK)
                     background = pill(ACCENT)
-                    setOnClickListener { GhostSession.resolveConfirmation(true) }
+                    setOnClickListener { GhostSession.resolveConfirmation(approved = true) }
                 },
             )
             addView(
@@ -169,7 +212,7 @@ class OverlayController(private val context: Context) {
                     text = "Deny"
                     setTextColor(Color.WHITE)
                     background = pill(DANGER)
-                    setOnClickListener { GhostSession.resolveConfirmation(false) }
+                    setOnClickListener { GhostSession.resolveConfirmation(approved = false) }
                     (layoutParams as? LinearLayout.LayoutParams)?.leftMargin = dp(8)
                 },
             )
@@ -190,14 +233,7 @@ class OverlayController(private val context: Context) {
             addView(stopButton)
         }
 
-        return LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(12), dp(16), dp(12))
-            background = GradientDrawable().apply {
-                cornerRadius = dp(18).toFloat()
-                setColor(Color.parseColor("#E6101014"))
-                setStroke(dp(1), Color.parseColor("#33FFFFFF"))
-            }
+        root.apply {
             val lp = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -223,30 +259,7 @@ class OverlayController(private val context: Context) {
      * would land on the bubble instead.
      */
     private fun makeDraggable(params: WindowManager.LayoutParams) {
-        val view = root ?: return
-        var startY = 0
-        var touchY = 0f
-
-        view.setOnTouchListener { v, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    startY = params.y
-                    touchY = event.rawY
-                    false // let buttons still get their click
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val dy = (event.rawY - touchY).roundToInt()
-                    if (kotlin.math.abs(dy) > dp(4)) {
-                        params.y = (startY + dy).coerceAtLeast(0)
-                        runCatching { windowManager.updateViewLayout(v, params) }
-                        true
-                    } else {
-                        false
-                    }
-                }
-                else -> false
-            }
-        }
+        // Drag logic moved to DraggableLayout.onInterceptTouchEvent
     }
 
     private companion object {

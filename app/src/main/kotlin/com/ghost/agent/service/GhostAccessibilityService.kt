@@ -2,8 +2,14 @@ package com.ghost.agent.service
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
+import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
+import android.view.KeyEvent
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
 import com.ghost.agent.core.agent.AgentLoop
 import com.ghost.agent.core.planning.HeuristicPlanner
 import com.ghost.agent.core.planning.LlmPlanner
@@ -40,6 +46,23 @@ class GhostAccessibilityService : AccessibilityService(), GhostEngine {
     /** The current task's coroutine. Cancelling it is the kill switch. */
     private var taskJob: Job? = null
 
+    private var powerButtonDownTime: Long = 0
+    private val LONG_PRESS_THRESHOLD = 3000L // 3 seconds
+    private val powerButtonHandler = Handler(Looper.getMainLooper())
+    private val triggerRunnable = Runnable {
+        Log.i(TAG, "Power button long-press (3s) detected. Starting automation.")
+        val launchIntent = Intent(this, com.ghost.agent.ui.MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+        }
+        startActivity(launchIntent)
+    }
+
+    private val powerButtonReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            // Screen events are no longer used for 3s long press
+        }
+    }
+
     private lateinit var device: AccessibilityDeviceController
     private lateinit var overlay: OverlayController
     private var planner: Planner = HeuristicPlanner()
@@ -52,6 +75,12 @@ class GhostAccessibilityService : AccessibilityService(), GhostEngine {
     override fun onServiceConnected() {
         super.onServiceConnected()
         Log.i(TAG, "connected")
+
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_SCREEN_ON)
+        }
+        registerReceiver(powerButtonReceiver, filter)
 
         device = AccessibilityDeviceController(this)
         overlay = OverlayController(this)
@@ -130,6 +159,22 @@ class GhostAccessibilityService : AccessibilityService(), GhostEngine {
         stopTask()
     }
 
+    override fun onKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode == KeyEvent.KEYCODE_POWER) {
+            if (event.action == KeyEvent.ACTION_DOWN) {
+                if (powerButtonDownTime == 0L) {
+                    powerButtonDownTime = System.currentTimeMillis()
+                    powerButtonHandler.postDelayed(triggerRunnable, LONG_PRESS_THRESHOLD)
+                }
+                // Don't return true: let the system handle the first press for safety
+            } else if (event.action == KeyEvent.ACTION_UP) {
+                powerButtonHandler.removeCallbacks(triggerRunnable)
+                powerButtonDownTime = 0L
+            }
+        }
+        return super.onKeyEvent(event)
+    }
+
     override fun onUnbind(intent: Intent?): Boolean {
         Log.i(TAG, "unbinding")
         stopTask()
@@ -139,6 +184,11 @@ class GhostAccessibilityService : AccessibilityService(), GhostEngine {
     }
 
     override fun onDestroy() {
+        try {
+            unregisterReceiver(powerButtonReceiver)
+        } catch (e: Exception) {
+            // Ignore
+        }
         serviceScope.cancel()
         planner.close()
         super.onDestroy()

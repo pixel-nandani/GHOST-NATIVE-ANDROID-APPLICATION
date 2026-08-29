@@ -1,40 +1,59 @@
 package com.ghost.agent.ui
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 
-private val Accent = Color(0xFF17B98A)
-private val AccentDark = Color(0xFF7CF5C4)
-private val Danger = Color(0xFFE5484D)
+private val WarmCream = Color(0xFFF5EFE0)
+private val MutedOlive = Color(0xFF8B8B6B)
+private val WarmMustard = Color(0xFFD4A017)
+private val TerracottaRed = Color(0xFFB04A41)
+private val TerracottaOrange = Color(0xFFCD7F32)
+private val DustyBlue = Color(0xFF7B9095)
+private val TileBeige = Color(0xFFE8E0D0)
+private val InkBlack = Color(0xFF2C2C2C)
 
-private val DarkScheme = darkColorScheme(
-    primary = AccentDark,
-    onPrimary = Color(0xFF04150F),
-    secondary = Color(0xFF9BA1A6),
-    background = Color(0xFF0B0C0E),
-    surface = Color(0xFF14161A),
-    surfaceVariant = Color(0xFF1D2024),
-    error = Danger,
-)
-
-private val LightScheme = lightColorScheme(
-    primary = Accent,
+private val VintageScheme = lightColorScheme(
+    primary = MutedOlive,
     onPrimary = Color.White,
-    secondary = Color(0xFF5A6169),
-    background = Color(0xFFF7F8F9),
-    surface = Color.White,
-    surfaceVariant = Color(0xFFEDEFF2),
-    error = Danger,
+    secondary = WarmMustard,
+    tertiary = DustyBlue,
+    background = WarmCream,
+    surface = TileBeige,
+    surfaceVariant = Color(0xFFDDD5C5),
+    error = TerracottaRed,
 )
 
 @Composable
 fun GhostTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = if (isSystemInDarkTheme()) DarkScheme else LightScheme,
+        colorScheme = VintageScheme,
+        typography = MaterialTheme.typography.copy(
+            headlineMedium = MaterialTheme.typography.headlineMedium.copy(
+                fontFamily = FontFamily.SansSerif, 
+                fontWeight = FontWeight.Black,
+                color = InkBlack
+            ),
+            bodyMedium = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.SansSerif),
+            labelSmall = MaterialTheme.typography.labelSmall.copy(
+                fontFamily = FontFamily.SansSerif, 
+                fontWeight = FontWeight.Bold
+            ),
+        ),
         content = content,
     )
+}
+
+object VintageColors {
+    val Cream = WarmCream
+    val Olive = MutedOlive
+    val Mustard = WarmMustard
+    val Red = TerracottaRed
+    val Orange = TerracottaOrange
+    val Blue = DustyBlue
+    val Beige = TileBeige
+    val Ink = InkBlack
 }

@@ -55,7 +55,9 @@ class MainActivity : ComponentActivity() {
                     onOpenOverlaySettings = {
                         startActivity(SetupChecks.overlaySettingsIntent(this))
                     },
-                    onGoalDispatched = { moveTaskToBack(true) },
+                    onGoalDispatched = {
+                        // Stay in the app so user can see progress cards
+                    },
                 )
             }
         }

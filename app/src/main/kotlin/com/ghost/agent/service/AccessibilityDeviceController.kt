@@ -2,7 +2,10 @@ package com.ghost.agent.service
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.content.Context
+import android.provider.CalendarContract
 import android.content.Intent
+import android.net.Uri
 import android.graphics.Path
 import android.graphics.Rect
 import android.os.Bundle
@@ -182,21 +185,37 @@ class AccessibilityDeviceController(
         return null
     }
 
-    private fun type(action: Action): ActionOutcome {
+    private suspend fun type(action: Action): ActionOutcome {
         val id = action.targetId ?: return ActionOutcome.failure("type without target_id")
         val value = action.value ?: return ActionOutcome.failure("type without value")
         val node = nodesById[id] ?: return ActionOutcome.failure("element $id is gone from the screen")
 
         if (!node.isEditable) return ActionOutcome.failure("element $id is not editable")
 
-        // Focus first: several apps ignore ACTION_SET_TEXT on an unfocused field.
+        // 1. Focus the field
         node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        delay(100L) // Wait for focus to land
 
+        // 2. Try ACTION_SET_TEXT
         val args = Bundle().apply {
             putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, value)
         }
-        val ok = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
-        return if (ok) ActionOutcome.Success else ActionOutcome.failure("ACTION_SET_TEXT was refused")
+        if (node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) {
+            return ActionOutcome.Success
+        }
+
+        // 3. Fallback: Try putting it on the clipboard and pasting
+        return try {
+            val cm = service.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            cm.setPrimaryClip(android.content.ClipData.newPlainText("ghost_type", value))
+            if (node.performAction(AccessibilityNodeInfo.ACTION_PASTE)) {
+                ActionOutcome.Success
+            } else {
+                ActionOutcome.failure("could not set text or paste")
+            }
+        } catch (e: Exception) {
+            ActionOutcome.failure("type failed: ${e.message}")
+        }
     }
 
     private suspend fun scroll(action: Action): ActionOutcome {
@@ -245,18 +264,86 @@ class AccessibilityDeviceController(
         if (service.performGlobalAction(actionId)) ActionOutcome.Success
         else ActionOutcome.failure("global action $label was refused")
 
-    private fun openApp(packageName: String?): ActionOutcome {
-        if (packageName.isNullOrBlank()) return ActionOutcome.failure("open_app without package")
+    private fun openApp(value: String?): ActionOutcome {
+        if (value.isNullOrBlank()) return ActionOutcome.failure("open_app without target")
 
-        // Note: the SafetyGate has already checked this package against the allow-list.
-        // This method must never be the only thing standing between the model and an
-        // arbitrary app launch.
-        val intent = service.packageManager.getLaunchIntentForPackage(packageName)
-            ?: return ActionOutcome.failure("$packageName is not installed")
+        return try {
+            val uri = Uri.parse(value)
+            when {
+                // 1. Native Email Intent (Pre-filled draft)
+                value.startsWith("mailto:") -> {
+                    val to = uri.schemeSpecificPart.substringBefore('?')
+                    val body = uri.getQueryParameter("body") ?: ""
+                    val subject = uri.getQueryParameter("subject") ?: "Automated Task"
+                    
+                    val intent = Intent(Intent.ACTION_SENDTO).apply {
+                        data = Uri.parse("mailto:$to")
+                        putExtra(Intent.EXTRA_SUBJECT, subject)
+                        putExtra(Intent.EXTRA_TEXT, body)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    
+                    // Force Gmail or similar if available
+                    val gmail = "com.google.android.gm"
+                    if (isAppInstalled(gmail)) intent.setPackage(gmail)
+                    
+                    service.startActivity(intent)
+                    ActionOutcome.Success
+                }
 
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-        service.startActivity(intent)
-        return ActionOutcome.Success
+                // 2. Native Calendar Intent (Explicit Payload)
+                value.startsWith("ghost://calendar/create") -> {
+                    val title = uri.getQueryParameter("title") ?: "New Event"
+                    val date = uri.getQueryParameter("date") // YYYY-MM-DD
+                    
+                    Log.i(TAG, "Executing native calendar insertion for: $title on $date")
+                    
+                    val intent = Intent(Intent.ACTION_INSERT).apply {
+                        data = CalendarContract.Events.CONTENT_URI
+                        putExtra(CalendarContract.Events.TITLE, title)
+                        putExtra(CalendarContract.Events.DESCRIPTION, "Created by Ghost Agent")
+                        
+                        val cal = java.util.Calendar.getInstance()
+                        date?.let {
+                            runCatching {
+                                val parts = it.split("-")
+                                cal.set(parts[0].toInt(), parts[1].toInt() - 1, parts[2].toInt(), 10, 0)
+                            }.onFailure { Log.e(TAG, "Failed to parse date: $it") }
+                        }
+                        
+                        val startTime = cal.timeInMillis
+                        putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, startTime)
+                        putExtra(CalendarContract.EXTRA_EVENT_END_TIME, startTime + 3600000)
+                        putExtra(CalendarContract.EXTRA_EVENT_ALL_DAY, false)
+                        
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    service.startActivity(intent)
+                    ActionOutcome.Success
+                }
+
+                // 3. General URI / Deep Link
+                value.contains("://") -> {
+                    val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    service.startActivity(intent)
+                    ActionOutcome.Success
+                }
+
+                // 4. Standard Package Name
+                else -> {
+                    val intent = service.packageManager.getLaunchIntentForPackage(value)
+                        ?: return ActionOutcome.failure("$value is not installed")
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+                    service.startActivity(intent)
+                    ActionOutcome.Success
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "failed to execute intent: $value", e)
+            ActionOutcome.failure("system error: ${e.message}")
+        }
     }
 
     // -------------------------------------------------------------------- gestures
@@ -312,6 +399,15 @@ class AccessibilityDeviceController(
             ActionType.WAIT -> 1000L
         }
         delay(ms)
+    }
+
+    private fun isAppInstalled(packageName: String): Boolean {
+        return try {
+            service.packageManager.getPackageInfo(packageName, 0)
+            true
+        } catch (e: Exception) {
+            false
+        }
     }
 
     companion object {

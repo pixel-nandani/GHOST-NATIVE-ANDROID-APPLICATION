@@ -46,6 +46,19 @@ object SetupChecks {
 
     fun canDrawOverlays(context: Context): Boolean = Settings.canDrawOverlays(context)
 
+    fun hasCalendarPermissions(context: Context): Boolean {
+        val read = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_CALENDAR)
+        val write = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.WRITE_CALENDAR)
+        return read == android.content.pm.PackageManager.PERMISSION_GRANTED &&
+               write == android.content.pm.PackageManager.PERMISSION_GRANTED
+    }
+
+    fun calendarPermissionsIntent(context: Context): Intent =
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", context.packageName, null)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
     /**
      * Opens Accessibility settings.
      *
@@ -63,4 +76,37 @@ object SetupChecks {
             Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
             Uri.parse("package:${context.packageName}"),
         ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    fun appSettingsIntent(context: Context): Intent =
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", context.packageName, null)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+    fun accessibilityServiceSettingsIntent(serviceId: String): Intent =
+        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+            // Some versions of Android allow deep linking to a specific service
+            putExtra(":settings:show_fragment_args", serviceId)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+    fun fontSizeSettingsIntent(): Intent =
+        Intent(Settings.ACTION_DISPLAY_SETTINGS)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    fun captioningSettingsIntent(): Intent =
+        Intent(Settings.ACTION_CAPTIONING_SETTINGS)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    fun colorCorrectionSettingsIntent(): Intent =
+        Intent("android.settings.COLOR_CORRECTION_SETTINGS")
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    fun screenPinningSettingsIntent(): Intent =
+        Intent(Settings.ACTION_SECURITY_SETTINGS)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    fun sosIntent(): Intent =
+        Intent(Intent.ACTION_DIAL, Uri.parse("tel:911"))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 }
